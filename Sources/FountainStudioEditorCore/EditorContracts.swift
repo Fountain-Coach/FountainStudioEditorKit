@@ -1,0 +1,101 @@
+import Foundation
+
+public enum EditorMarkerKind: String, Sendable, Equatable {
+    case cutUnit
+    case window
+    case atom
+    case beat
+    case generic
+}
+
+public struct EditorMarker: Sendable, Equatable, Identifiable {
+    public let id: String
+    public let kind: EditorMarkerKind
+    public let lineNumber: Int
+    public let rawText: String
+    public let metadata: [String: String]
+
+    public init(
+        id: String,
+        kind: EditorMarkerKind,
+        lineNumber: Int,
+        rawText: String,
+        metadata: [String: String] = [:]
+    ) {
+        self.id = id
+        self.kind = kind
+        self.lineNumber = lineNumber
+        self.rawText = rawText
+        self.metadata = metadata
+    }
+}
+
+public struct EditorAnchor: Sendable, Equatable {
+    public let id: String
+    public let kind: String
+
+    public init(id: String, kind: String) {
+        self.id = id
+        self.kind = kind
+    }
+}
+
+public protocol EditorMarkerProvider: Sendable {
+    func markers(for text: String) -> [EditorMarker]
+}
+
+public protocol EditorVirtualizationPolicy: Sendable {
+    func shouldVirtualize(line: String, lineNumber: Int) -> Bool
+}
+
+public protocol EditorNavigationResolver: Sendable {
+    func targetOffset(for anchor: EditorAnchor, in text: String) -> Int?
+}
+
+public struct OverlayCardContent: Sendable, Equatable {
+    public let title: String
+    public let body: String
+
+    public init(title: String, body: String) {
+        self.title = title
+        self.body = body
+    }
+}
+
+public protocol EditorOverlayCardProvider: Sendable {
+    func card(for marker: EditorMarker) -> OverlayCardContent
+}
+
+public protocol EditorDragPayloadCodec: Sendable {
+    func encode(marker: EditorMarker, range: ClosedRange<Int>?) throws -> String
+    func decode(_ payload: String) throws -> EditorMarker
+}
+
+public enum EditorLineNumberMode: String, Sendable {
+    case sourceAbsolute
+    case visibleOnly
+}
+
+public enum EditorMarkerPresentationMode: String, Sendable {
+    case inlineVisible
+    case gutterOverlay
+}
+
+public struct EditorFeatureFlags: Sendable, Equatable {
+    public var lineNumberMode: EditorLineNumberMode
+    public var markerPresentationMode: EditorMarkerPresentationMode
+    public var dragAnchorsEnabled: Bool
+    public var writingToolsCompatMode: Bool
+
+    public init(
+        lineNumberMode: EditorLineNumberMode = .sourceAbsolute,
+        markerPresentationMode: EditorMarkerPresentationMode = .inlineVisible,
+        dragAnchorsEnabled: Bool = false,
+        writingToolsCompatMode: Bool = true
+    ) {
+        self.lineNumberMode = lineNumberMode
+        self.markerPresentationMode = markerPresentationMode
+        self.dragAnchorsEnabled = dragAnchorsEnabled
+        self.writingToolsCompatMode = writingToolsCompatMode
+    }
+}

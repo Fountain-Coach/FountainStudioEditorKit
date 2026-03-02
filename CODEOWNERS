@@ -1,0 +1,14 @@
+# Core APIs and parser contracts
+/Sources/FountainStudioEditorCore/ @Fountain-Coach/contexter
+
+# AppKit integration and rendering
+/Sources/FountainStudioEditorAppKit/ @Fountain-Coach/contexter
+/Sources/FountainStudioEditorSwiftUI/ @Fountain-Coach/contexter
+
+# CI/governance/security
+/.github/ @Fountain-Coach/contexter
+/AGENTS.md @Fountain-Coach/contexter
+/PLANS.md @Fountain-Coach/contexter
+/FCIS_AUDIT.md @Fountain-Coach/contexter
+/FCIS_COMPLIANCE_PLAN.md @Fountain-Coach/contexter
+/SECURITY.md @Fountain-Coach/contexter

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+required=(
+  AGENTS.md
+  PLANS.md
+  FCIS_AUDIT.md
+  FCIS_COMPLIANCE_PLAN.md
+  .codex/skills/repo-ops/SKILL.md
+  .codex/skills/vrt-ops/SKILL.md
+)
+
+for path in "${required[@]}"; do
+  if [[ ! -f "$path" ]]; then
+    echo "missing required FCIS file: $path" >&2
+    exit 1
+  fi
+done
+
+echo "FCIS structure check passed."
