@@ -56,11 +56,11 @@ Non-goals: Broad non-focused UI redesign, app-specific parser coupling, or repla
 Constraints: Keep API additive and backward compatible; preserve default inline-visible behavior unless focused flags enable overlay mode; maintain FCIS-required checks.
 Risks: AppKit overlay/ruler work can introduce render jitter and selection bugs; mitigated with deterministic snapshot harness, repeat-pass stability gate, and focused regression tests.
 Plan:
-- Step 1 (status: in_progress) - Add additive focused feature configuration and anchor payload contracts used by framework runtime.
-- Step 2 (status: pending) - Implement AppKit focused behaviors (visible-only ruler + icon gutter overlays + hover card + drag payload + marker virtualization).
-- Step 3 (status: pending) - Wire SwiftUI editor API to expose focused feature flags and keep backward-compatible defaults.
-- Step 4 (status: pending) - Add focused tests (virtualization, payload compatibility, and focused snapshots with light/dark variants and repeat-pass determinism).
-- Step 5 (status: pending) - Add CI job for focused VRT repeat-pass and validate required checks (`swift-test`, `fcis-audit-check`, `security-scan`, `vrt-focused-repeat-pass`).
+- Step 1 (status: done) - Add additive focused feature configuration and anchor payload contracts used by framework runtime.
+- Step 2 (status: done) - Implement AppKit focused behaviors (visible-only ruler + icon gutter overlays + hover card + drag payload + marker virtualization).
+- Step 3 (status: done) - Wire SwiftUI editor API to expose focused feature flags and keep backward-compatible defaults.
+- Step 4 (status: done) - Add focused tests (virtualization, payload compatibility, and focused snapshots with light/dark variants and repeat-pass determinism).
+- Step 5 (status: in_progress) - Add CI job for focused VRT repeat-pass and validate required checks (`swift-test`, `fcis-audit-check`, `security-scan`, `vrt-focused-repeat-pass`).
 Validation:
 - `swift test`
 - `UI_SNAPSHOT=1 swift test --filter Focused`
