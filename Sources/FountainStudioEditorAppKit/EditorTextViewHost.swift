@@ -11,8 +11,10 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
     public var virtualizationPolicy: any EditorVirtualizationPolicy
     public var dragPayloadCodec: any EditorDragPayloadCodec
     public var onTextViewReady: ((NSTextView) -> Void)?
+    public var onDiagnostic: ((EditorRuntimeDiagnostic) -> Void)?
 
     private var isApplyingExternalUpdate = false
+    private var isVirtualizationMaskSuppressed = false
     private(set) weak var textView: NSTextView?
 
     public init(
@@ -22,7 +24,8 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         markerProvider: any EditorMarkerProvider = BasicMarkerProvider(),
         virtualizationPolicy: any EditorVirtualizationPolicy = BracketMarkerVirtualizationPolicy(),
         dragPayloadCodec: any EditorDragPayloadCodec = StorifyAnchorPayloadCodec(),
-        onTextViewReady: ((NSTextView) -> Void)? = nil
+        onTextViewReady: ((NSTextView) -> Void)? = nil,
+        onDiagnostic: ((EditorRuntimeDiagnostic) -> Void)? = nil
     ) {
         self.textBindingGet = textBindingGet
         self.textBindingSet = textBindingSet
@@ -31,6 +34,7 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         self.virtualizationPolicy = virtualizationPolicy
         self.dragPayloadCodec = dragPayloadCodec
         self.onTextViewReady = onTextViewReady
+        self.onDiagnostic = onDiagnostic
     }
 
     public func makeScrollView() -> NSScrollView {
@@ -139,10 +143,20 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
             )
             scrollView.verticalRulerView = ruler
         }
-        ruler.featureFlags = configuration.featureFlags
+        ruler.featureFlags = effectiveFeatureFlags()
         scrollView.hasVerticalRuler = true
         scrollView.rulersVisible = true
         ruler.refresh(forceRecompute: forceRecompute)
+    }
+
+    private func effectiveFeatureFlags() -> EditorFeatureFlags {
+        guard isVirtualizationMaskSuppressed,
+              configuration.featureFlags.markerPresentationMode == .gutterOverlay else {
+            return configuration.featureFlags
+        }
+        var flags = configuration.featureFlags
+        flags.lineNumberMode = .sourceAbsolute
+        return flags
     }
 
     private func applyVirtualizationMaskIfNeeded(to textView: NSTextView) {
@@ -162,24 +176,45 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         )
 
         if shouldUseGutterOverlay() {
-            let hiddenAttributes: [NSAttributedString.Key: Any] = [
-                .foregroundColor: NSColor.clear,
-                .font: NSFont.monospacedSystemFont(ofSize: 0.1, weight: .regular),
-                .paragraphStyle: collapsedParagraphStyle()
-            ]
-            let ranges = EditorVirtualization.virtualizedCharacterRanges(
-                in: storage.string,
-                policy: virtualizationPolicy
+            let index = EditorVirtualization.buildIndex(in: storage.string, policy: virtualizationPolicy)
+            let nextSuppressed = index.lineCount > 0 && index.virtualizedSourceLines.count >= index.lineCount
+            emitMaskSuppressionDiagnosticIfNeeded(
+                wasSuppressed: isVirtualizationMaskSuppressed,
+                isSuppressed: nextSuppressed,
+                lineCount: index.lineCount,
+                virtualizedLineCount: index.virtualizedSourceLines.count
             )
-            for range in ranges where range.length > 0 {
-                storage.addAttributes(hiddenAttributes, range: range)
+            isVirtualizationMaskSuppressed = nextSuppressed
+
+            if !nextSuppressed {
+                let hiddenAttributes: [NSAttributedString.Key: Any] = [
+                    .foregroundColor: NSColor.clear,
+                    .font: NSFont.monospacedSystemFont(ofSize: 0.1, weight: .regular),
+                    .paragraphStyle: collapsedParagraphStyle()
+                ]
+                let ranges = EditorVirtualization.virtualizedCharacterRanges(
+                    in: storage.string,
+                    policy: virtualizationPolicy
+                )
+                for range in ranges where range.length > 0 {
+                    storage.addAttributes(hiddenAttributes, range: range)
+                }
             }
+        } else if isVirtualizationMaskSuppressed {
+            emitMaskSuppressionDiagnosticIfNeeded(
+                wasSuppressed: true,
+                isSuppressed: false,
+                lineCount: EditorVirtualization.lineCount(in: storage.string),
+                virtualizedLineCount: 0
+            )
+            isVirtualizationMaskSuppressed = false
         }
         storage.endEditing()
     }
 
     private func clampSelectionIfNeeded(in textView: NSTextView) {
         guard shouldUseGutterOverlay() else { return }
+        guard !isVirtualizationMaskSuppressed else { return }
         let blocked = EditorVirtualization.virtualizedCharacterRanges(
             in: textView.string,
             policy: virtualizationPolicy
@@ -237,6 +272,26 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
             backward -= 1
         }
         return min(max(0, location), maxLength)
+    }
+
+    private func emitMaskSuppressionDiagnosticIfNeeded(
+        wasSuppressed: Bool,
+        isSuppressed: Bool,
+        lineCount: Int,
+        virtualizedLineCount: Int
+    ) {
+        guard wasSuppressed != isSuppressed else { return }
+        let kind: EditorRuntimeDiagnosticKind = isSuppressed
+            ? .virtualizationMaskSuppressed
+            : .virtualizationMaskRestored
+        onDiagnostic?(
+            EditorRuntimeDiagnostic(
+                kind: kind,
+                reason: "all_lines_virtualized",
+                lineCount: lineCount,
+                virtualizedLineCount: virtualizedLineCount
+            )
+        )
     }
 
     private func baseParagraphStyle() -> NSParagraphStyle {

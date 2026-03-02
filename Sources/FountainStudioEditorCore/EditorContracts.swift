@@ -133,3 +133,27 @@ public struct EditorFeatureFlags: Sendable, Equatable {
         self.anchorPayloadPrefix = anchorPayloadPrefix
     }
 }
+
+public enum EditorRuntimeDiagnosticKind: String, Sendable, Equatable {
+    case virtualizationMaskSuppressed
+    case virtualizationMaskRestored
+}
+
+public struct EditorRuntimeDiagnostic: Sendable, Equatable {
+    public let kind: EditorRuntimeDiagnosticKind
+    public let reason: String
+    public let lineCount: Int
+    public let virtualizedLineCount: Int
+
+    public init(
+        kind: EditorRuntimeDiagnosticKind,
+        reason: String,
+        lineCount: Int,
+        virtualizedLineCount: Int
+    ) {
+        self.kind = kind
+        self.reason = reason
+        self.lineCount = lineCount
+        self.virtualizedLineCount = virtualizedLineCount
+    }
+}

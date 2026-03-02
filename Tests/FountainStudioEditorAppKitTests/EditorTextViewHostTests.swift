@@ -91,4 +91,74 @@ final class EditorTextViewHostTests: XCTestCase {
         XCTAssertLessThan(marker2Font?.pointSize ?? 99, 1.0)
         XCTAssertGreaterThanOrEqual(bodyFont?.pointSize ?? 0, 10.0)
     }
+
+    func testGutterOverlaySuppressesMaskWhenAllLinesWouldVirtualize() {
+        var text = """
+        [[CUT UNIT 1: SETUP]]
+        [[WINDOW:window-0 range=1-32]]
+        .CUT UNIT 2: TURN
+        """
+        var diagnostics: [EditorRuntimeDiagnostic] = []
+        let config = EditorConfiguration(
+            featureFlags: EditorFeatureFlags(
+                lineNumberMode: .visibleOnly,
+                markerPresentationMode: .gutterOverlay,
+                dragAnchorsEnabled: true
+            )
+        )
+        let host = EditorTextViewHost(
+            textBindingGet: { text },
+            textBindingSet: { text = $0 },
+            configuration: config,
+            onDiagnostic: { diagnostics.append($0) }
+        )
+        let scroll = host.makeScrollView()
+        guard let textView = scroll.documentView as? NSTextView,
+              let storage = textView.textStorage else {
+            return XCTFail("missing text storage")
+        }
+        let ns = text as NSString
+        let marker = ns.range(of: "[[CUT UNIT 1: SETUP]]")
+        XCTAssertNotEqual(marker.location, NSNotFound)
+        let markerFont = storage.attribute(.font, at: marker.location, effectiveRange: nil) as? NSFont
+        XCTAssertGreaterThanOrEqual(markerFont?.pointSize ?? 0, 10.0)
+        XCTAssertEqual(diagnostics.last?.kind, .virtualizationMaskSuppressed)
+    }
+
+    func testGutterOverlayRestoresMaskAfterVisibleContentReturns() {
+        var text = """
+        [[CUT UNIT 1: SETUP]]
+        [[WINDOW:window-0 range=1-32]]
+        """
+        var diagnostics: [EditorRuntimeDiagnostic] = []
+        let config = EditorConfiguration(
+            featureFlags: EditorFeatureFlags(
+                lineNumberMode: .visibleOnly,
+                markerPresentationMode: .gutterOverlay,
+                dragAnchorsEnabled: true
+            )
+        )
+        let host = EditorTextViewHost(
+            textBindingGet: { text },
+            textBindingSet: { text = $0 },
+            configuration: config,
+            onDiagnostic: { diagnostics.append($0) }
+        )
+        let scroll = host.makeScrollView()
+        text = """
+        [[CUT UNIT 1: SETUP]]
+        BODY
+        """
+        host.update(scrollView: scroll)
+        guard let textView = scroll.documentView as? NSTextView,
+              let storage = textView.textStorage else {
+            return XCTFail("missing text storage")
+        }
+        let ns = text as NSString
+        let marker = ns.range(of: "[[CUT UNIT 1: SETUP]]")
+        XCTAssertNotEqual(marker.location, NSNotFound)
+        let markerFont = storage.attribute(.font, at: marker.location, effectiveRange: nil) as? NSFont
+        XCTAssertLessThan(markerFont?.pointSize ?? 99, 1.0)
+        XCTAssertEqual(diagnostics.map(\.kind), [.virtualizationMaskSuppressed, .virtualizationMaskRestored])
+    }
 }

@@ -10,6 +10,7 @@ public struct FountainStudioEditor: NSViewRepresentable {
     private let virtualizationPolicy: any EditorVirtualizationPolicy
     private let dragPayloadCodec: any EditorDragPayloadCodec
     private let onTextViewReady: ((NSTextView) -> Void)?
+    private let onDiagnostic: ((EditorRuntimeDiagnostic) -> Void)?
 
     public init(
         text: Binding<String>,
@@ -17,7 +18,8 @@ public struct FountainStudioEditor: NSViewRepresentable {
         markerProvider: any EditorMarkerProvider = BasicMarkerProvider(),
         virtualizationPolicy: any EditorVirtualizationPolicy = BracketMarkerVirtualizationPolicy(),
         dragPayloadCodec: any EditorDragPayloadCodec = StorifyAnchorPayloadCodec(),
-        onTextViewReady: ((NSTextView) -> Void)? = nil
+        onTextViewReady: ((NSTextView) -> Void)? = nil,
+        onDiagnostic: ((EditorRuntimeDiagnostic) -> Void)? = nil
     ) {
         self._text = text
         self.configuration = configuration
@@ -25,6 +27,7 @@ public struct FountainStudioEditor: NSViewRepresentable {
         self.virtualizationPolicy = virtualizationPolicy
         self.dragPayloadCodec = dragPayloadCodec
         self.onTextViewReady = onTextViewReady
+        self.onDiagnostic = onDiagnostic
     }
 
     public func makeCoordinator() -> EditorTextViewHost {
@@ -35,7 +38,8 @@ public struct FountainStudioEditor: NSViewRepresentable {
             markerProvider: markerProvider,
             virtualizationPolicy: virtualizationPolicy,
             dragPayloadCodec: dragPayloadCodec,
-            onTextViewReady: onTextViewReady
+            onTextViewReady: onTextViewReady,
+            onDiagnostic: onDiagnostic
         )
     }
 

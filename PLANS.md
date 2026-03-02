@@ -32,6 +32,23 @@ Validation:
 
 ---
 
+Title: FountainStudioEditorKit — virtualization fail-safe and recovery diagnostics
+Goal: Ensure focused gutter-overlay mode never renders an effectively blank document by disabling virtualization masking when all lines would be hidden, and expose deterministic runtime diagnostics to host apps.
+Scope: `FountainStudioEditorCore` additive diagnostics contracts, `FountainStudioEditorAppKit` host masking fail-safe behavior, `FountainStudioEditorSwiftUI` callback plumbing, and focused host tests.
+Non-goals: Changing default marker parsing policy, introducing app-specific model dependencies, or altering drag payload schema.
+Constraints: API changes must be additive/backward compatible; inline mode behavior remains unchanged.
+Risks: Failsafe could mask legitimate marker-only documents and surprise users; mitigated by deterministic diagnostics and automatic restoration when visible lines return.
+Plan:
+- Step 1 (status: done) - Add public runtime diagnostic contract and optional callback plumbing.
+- Step 2 (status: done) - Implement host-level all-lines-virtualized detection with mask suppression fallback.
+- Step 3 (status: done) - Add tests for suppression activation/restoration and inline/body visibility invariants.
+- Step 4 (status: done) - Run framework tests including focused snapshots.
+Validation:
+- `swift test`
+- `swift test --filter 'EditorTextViewHostTests|FocusedEditorSnapshotTests|VirtualizationIndexTests'`
+
+---
+
 Title: FountainStudioEditorKit — FCIS-compliant bootstrap and Modernization Studio focused-editor migration
 Goal: Stand up a standalone FCIS-compliant editor framework repo and provide the initial migration surface for the focused Storify A4 editor via adapter-based integration.
 Scope: Repo governance/docs/CI, core protocol surface, basic AppKit+SwiftUI module scaffolding, and consumer integration path definition.
