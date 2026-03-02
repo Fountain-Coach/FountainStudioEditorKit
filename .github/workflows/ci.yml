@@ -18,6 +18,15 @@ jobs:
       - name: Tests
         run: swift test
 
+  vrt-focused-repeat-pass:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.1'
+      - name: Focused VRT repeat-pass
+        run: UI_SNAPSHOT=1 swift test --filter FocusedEditorSnapshotTests
   fcis-audit-check:
     runs-on: ubuntu-latest
     steps:
