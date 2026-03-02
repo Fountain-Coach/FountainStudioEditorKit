@@ -64,6 +64,7 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         scrollView.documentView = textView
         self.textView = textView
         applyVirtualizationMaskIfNeeded(to: textView)
+        clampSelectionIfNeeded(in: textView)
         configureRulerIfNeeded(scrollView: scrollView, textView: textView, forceRecompute: true)
         onTextViewReady?(textView)
         return scrollView
@@ -90,6 +91,7 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         }
 
         applyVirtualizationMaskIfNeeded(to: textView)
+        clampSelectionIfNeeded(in: textView)
         configureRulerIfNeeded(scrollView: scrollView, textView: textView, forceRecompute: forceRecompute)
     }
 
@@ -98,6 +100,7 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         guard let textView else { return }
         textBindingSet(textView.string)
         applyVirtualizationMaskIfNeeded(to: textView)
+        clampSelectionIfNeeded(in: textView)
         if let scrollView = textView.enclosingScrollView {
             configureRulerIfNeeded(scrollView: scrollView, textView: textView, forceRecompute: false)
         }
@@ -164,17 +167,76 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
                 .font: NSFont.monospacedSystemFont(ofSize: 0.1, weight: .regular),
                 .paragraphStyle: collapsedParagraphStyle()
             ]
-            let text = storage.string as NSString
-            var lineNumber = 0
-            text.enumerateSubstrings(in: NSRange(location: 0, length: text.length), options: [.byLines, .substringNotRequired]) { _, substringRange, enclosingRange, _ in
-                lineNumber += 1
-                let rawLine = text.substring(with: substringRange)
-                if self.virtualizationPolicy.shouldVirtualize(line: rawLine, lineNumber: lineNumber) {
-                    storage.addAttributes(hiddenAttributes, range: enclosingRange)
-                }
+            let ranges = EditorVirtualization.virtualizedCharacterRanges(
+                in: storage.string,
+                policy: virtualizationPolicy
+            )
+            for range in ranges where range.length > 0 {
+                storage.addAttributes(hiddenAttributes, range: range)
             }
         }
         storage.endEditing()
+    }
+
+    private func clampSelectionIfNeeded(in textView: NSTextView) {
+        guard shouldUseGutterOverlay() else { return }
+        let blocked = EditorVirtualization.virtualizedCharacterRanges(
+            in: textView.string,
+            policy: virtualizationPolicy
+        )
+        guard !blocked.isEmpty else { return }
+        let maxLength = (textView.string as NSString).length
+        var updated: [NSValue] = []
+        updated.reserveCapacity(textView.selectedRanges.count)
+        var didChange = false
+
+        for value in textView.selectedRanges {
+            let original = value.rangeValue
+            let clampedLocation = min(max(0, original.location), maxLength)
+            let collapsed = NSRange(location: clampedLocation, length: 0)
+            let adjustedLocation = nearestVisibleLocation(
+                from: clampedLocation,
+                blockedRanges: blocked,
+                maxLength: maxLength
+            )
+            let adjusted = NSRange(location: adjustedLocation, length: 0)
+            if adjusted != collapsed || original.length != 0 {
+                didChange = true
+            }
+            updated.append(NSValue(range: adjusted))
+        }
+
+        if updated.isEmpty {
+            updated = [NSValue(range: NSRange(location: nearestVisibleLocation(from: maxLength, blockedRanges: blocked, maxLength: maxLength), length: 0))]
+            didChange = true
+        }
+
+        guard didChange else { return }
+        textView.selectedRanges = updated
+    }
+
+    private func nearestVisibleLocation(from location: Int, blockedRanges: [NSRange], maxLength: Int) -> Int {
+        func isBlocked(_ offset: Int) -> Bool {
+            blockedRanges.contains { NSLocationInRange(offset, $0) }
+        }
+        if !isBlocked(location) {
+            return location
+        }
+        var forward = location
+        while forward <= maxLength {
+            if !isBlocked(forward) {
+                return forward
+            }
+            forward += 1
+        }
+        var backward = location
+        while backward >= 0 {
+            if !isBlocked(backward) {
+                return backward
+            }
+            backward -= 1
+        }
+        return min(max(0, location), maxLength)
     }
 
     private func baseParagraphStyle() -> NSParagraphStyle {

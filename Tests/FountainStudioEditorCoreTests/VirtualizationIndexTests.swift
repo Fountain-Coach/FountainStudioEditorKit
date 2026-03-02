@@ -25,6 +25,49 @@ final class VirtualizationIndexTests: XCTestCase {
         XCTAssertEqual(lines, [1])
     }
 
+    func testVisibleLineNumberMapIsContiguous() {
+        let text = """
+        [[CUT UNIT 1: SETUP]]
+        A
+        [[WINDOW:window-0 range=1-32]]
+        B
+        .CUT UNIT 2: TURN
+        C
+        """
+        let mapping = EditorVirtualization.visibleLineNumberMap(
+            in: text,
+            policy: BracketMarkerVirtualizationPolicy()
+        )
+        XCTAssertEqual(mapping[2], 1)
+        XCTAssertEqual(mapping[4], 2)
+        XCTAssertEqual(mapping[6], 3)
+        XCTAssertNil(mapping[1])
+        XCTAssertNil(mapping[3])
+        XCTAssertNil(mapping[5])
+    }
+
+    func testVirtualizedCharacterRangesCoverMarkerLines() {
+        let text = """
+        [[CUT UNIT 1: SETUP]]
+        A
+        [[WINDOW:window-0 range=1-32]]
+        .CUT UNIT 2: TURN
+        B
+        """
+        let ranges = EditorVirtualization.virtualizedCharacterRanges(
+            in: text,
+            policy: BracketMarkerVirtualizationPolicy()
+        )
+        XCTAssertFalse(ranges.isEmpty)
+        let ns = text as NSString
+        let snippets = ranges.map { ns.substring(with: $0) }
+        XCTAssertTrue(snippets.contains(where: { $0.contains("[[CUT UNIT 1: SETUP]]") }))
+        XCTAssertTrue(snippets.contains(where: { $0.contains("[[WINDOW:window-0 range=1-32]]") }))
+        XCTAssertTrue(snippets.contains(where: { $0.contains(".CUT UNIT 2: TURN") }))
+        XCTAssertFalse(snippets.contains(where: { $0.contains("\nA\n") }))
+        XCTAssertFalse(snippets.contains(where: { $0.contains("\nB") }))
+    }
+
     func testMarkerProviderParsesWindowAndCutUnitMarkers() {
         let text = """
         [[WINDOW:window-2 range=65-96]]
