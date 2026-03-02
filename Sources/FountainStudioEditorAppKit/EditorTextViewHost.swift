@@ -58,10 +58,8 @@ public final class EditorTextViewHost: NSObject, NSTextViewDelegate {
         textView.isHorizontallyResizable = false
         textView.textContainer?.widthTracksTextView = true
         textView.delegate = self
-        if #available(macOS 15.0, *), configuration.featureFlags.writingToolsCompatMode {
-            textView.writingToolsBehavior = .complete
-            textView.allowedWritingToolsResultOptions = .plainText
-        }
+        // Writing Tools API is intentionally not configured here to keep compatibility
+        // across CI SDK/toolchain combinations.
 
         scrollView.documentView = textView
         self.textView = textView
