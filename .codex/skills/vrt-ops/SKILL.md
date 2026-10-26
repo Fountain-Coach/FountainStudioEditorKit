@@ -1,8 +1,6 @@
 ---
 name: vrt-ops
 description: Run deterministic FCIS-VRT snapshot checks for editor surfaces.
-metadata:
-  short-description: Run VRT checks
 ---
 
 # Skill: vrt-ops
